@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Conforms - Cadastro de Usuários</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+
+    h1, h2 {
+      text-align: center;
+      color: #333;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #2b8a3e;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #237031;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      background-color: #f2f2f2;
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Cadastro de Usuários - Conforms</h1>
+
+  <form id="formulario">
+    <input type="text" id="nome" placeholder="Digite o nome" required>
+    <input type="email" id="email" placeholder="Digite o e-mail" required>
+    <button type="submit">Cadastrar</button>
+  </form>
+
+  <h2>Usuários Cadastrados:</h2>
+  <ul id="lista"></ul>
+
+  <script>
+    const form = document.getElementById('formulario');
+    const lista = document.getElementById('lista');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const nome = document.getElementById('nome').value;
+      const email = document.getElementById('email').value;
+
+      const loading = document.createElement('p');
+      loading.textContent = 'Carregando...';
+      loading.style.color = 'gray';
+      lista.innerHTML = '';
+      lista.appendChild(loading);
+
+      try {
+        const resposta = await fetch('http://localhost:3000/usuarios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome, email })
+        });
+
+        if (!resposta.ok) throw new Error('Erro ao salvar usuário');
+
+        form.reset();
+        await aguardar(500);
+        carregarUsuarios();
+      } catch (error) {
+        console.error('❌ Erro ao cadastrar:', error);
+        lista.innerHTML = '<p style="color: red;">Erro ao salvar usuário.</p>';
+      }
+    });
+
+    async function excluirUsuario(id) {
+      const confirmar = confirm("Tem certeza que deseja excluir este usuário?");
+      if (!confirmar) return;
+
+      const loading = document.createElement('p');
+      loading.textContent = 'Carregando...';
+      loading.style.color = 'gray';
+      lista.innerHTML = '';
+      lista.appendChild(loading);
+
+      try {
+        const resposta = await fetch(`http://localhost:3000/usuarios/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (!resposta.ok) {
+          let mensagemErro = 'Erro ao excluir usuário.';
+
+          try {
+            const conteudoTipo = resposta.headers.get("Content-Type");
+            if (conteudoTipo && conteudoTipo.includes("application/json")) {
+              const json = await resposta.json();
+              mensagemErro = json.erro || mensagemErro;
+            } else {
+              const texto = await resposta.text();
+              console.warn('Resposta não-JSON:', texto);
+            }
+          } catch (e) {
+            console.warn('Erro ao interpretar resposta do servidor:', e);
+          }
+
+          throw new Error(mensagemErro);
+        }
+
+        await aguardar(500);
+        carregarUsuarios();
+      } catch (error) {
+        console.error('❌ Erro ao excluir:', error.message);
+        lista.innerHTML = `<p style="color: red;">${error.message}</p>`;
+      }
+    }
+
+    function editarUsuario(usuario) {
+      const nomeNovo = prompt("Novo nome:", usuario.nome);
+      const emailNovo = prompt("Novo e-mail:", usuario.email);
+
+      if (!nomeNovo || !emailNovo) {
+        alert("Nome e e-mail são obrigatórios.");
+        return;
+      }
+
+      fetch(`http://localhost:3000/usuarios/${usuario._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: nomeNovo, email: emailNovo })
+      })
+        .then(async (resposta) => {
+          if (!resposta.ok) {
+            const erro = await resposta.json();
+            throw new Error(erro.erro || 'Erro ao atualizar usuário');
+          }
+          return resposta.json();
+        })
+        .then(() => {
+          alert("✅ Usuário atualizado com sucesso!");
+          carregarUsuarios();
+        })
+        .catch(error => {
+          console.error('❌ Erro ao editar usuário:', error.message);
+          alert("Erro ao editar usuário.");
+        });
+    }
+
+    async function carregarUsuarios() {
+      lista.innerHTML = '';
+
+      const loading = document.createElement('p');
+      loading.textContent = 'Carregando...';
+      loading.style.color = 'gray';
+      lista.appendChild(loading);
+
+      try {
+        const resposta = await fetch('http://localhost:3000/usuarios');
+        const usuarios = await resposta.json();
+
+        lista.innerHTML = '';
+
+        if (usuarios.length === 0) {
+          lista.innerHTML = '<p>Nenhum usuário cadastrado.</p>';
+          return;
+        }
+
+        usuarios.forEach(usuario => {
+          const li = document.createElement('li');
+
+          
+          const span = document.createElement('span');
+          span.textContent = `${usuario.nome} - ${usuario.email}`;
+
+          const btnExcluir = document.createElement('button');
+          btnExcluir.textContent = 'Excluir';
+          btnExcluir.addEventListener('click', () => excluirUsuario(usuario._id));
+
+          const btnEditar = document.createElement('button');
+          btnEditar.textContent = 'Editar';
+          btnEditar.style.marginLeft = '10px';
+          btnEditar.addEventListener('click', () => editarUsuario(usuario));
+
+          li.appendChild(span);
+          li.appendChild(btnExcluir);
+          li.appendChild(btnEditar);
+          lista.appendChild(li);
+        });
+      } catch (error) {
+        console.error('❌ Erro ao carregar usuários:', error);
+        lista.innerHTML = '<p style="color: red;">Erro ao carregar usuários.</p>';
+      }
+    }
+
+    function aguardar(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    carregarUsuarios();
+  </script>
+</body>
+</html>
+
