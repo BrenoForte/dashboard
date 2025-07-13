@@ -1,0 +1,9 @@
+# Ignorar node_modules
+node_modules/
+
+# Ignorar arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Ignorar variáveis de ambiente (se usar)
+.env
