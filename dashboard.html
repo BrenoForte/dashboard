@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard - Relatório Ordens de Serviço</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Reset e estilo base */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0; padding: 20px;
+      background: #f4f6f8;
+      color: #333;
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #1a365d;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(280px,1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.25rem;
+      margin-bottom: 15px;
+      color: #2c5282;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+    }
+    th {
+      background: #ebf8ff;
+      color: #2c5282;
+    }
+
+    /* Scroll horizontal para tabela pequena */
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    #busca {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>Dashboard - Relatório Ordens de Serviço</h1>
+
+  <div class="dashboard-grid">
+
+    <div class="card">
+      <h2>Total de Ordens de Serviço</h2>
+      <p id="total-os" style="font-size: 2rem; font-weight: bold; text-align:center;">0</p>
+    </div>
+
+    <div class="card">
+      <h2>OS por Status</h2>
+      <canvas id="chartStatus" height="200"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>OS por Região</h2>
+      <canvas id="chartRegiao" height="200"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>OS por Responsável</h2>
+      <canvas id="chartResponsavel" height="200"></canvas>
+    </div>
+
+    <div class="card" style="grid-column: 1 / -1;">
+      <h2>Últimas Ordens de Serviço</h2>
+      <input type="text" id="busca" placeholder="Buscar em qualquer coluna..." />
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Nº OS</th>
+              <th>Tipo</th>
+              <th>Status</th>
+              <th>Região</th>
+              <th>endID</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Responsável</th>
+              <th>Criação</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody id="ultimas-os">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const urlBase = 'http://localhost:3000';  // ajuste se necessário
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      alert('Você precisa fazer login primeiro.');
+      // window.location.href = 'login.html';
+    }
+
+    async function buscarOrdens() {
+      try {
+        const res = await fetch(`${urlBase}/ordens`, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (!res.ok) throw new Error('Erro ao buscar ordens');
+        return await res.json();
+      } catch (err) {
+        alert(err.message);
+        return [];
+      }
+    }
+
+    function contarPorCampo(lista, campo) {
+      return lista.reduce((acc, item) => {
+        const valor = item[campo] || 'Não definido';
+        acc[valor] = (acc[valor] || 0) + 1;
+        return acc;
+      }, {});
+    }
+
+    function gerarGrafico(ctx, labels, data, tipo = 'bar', titulo = '') {
+      return new Chart(ctx, {
+        type: tipo,
+        data: {
+          labels,
+          datasets: [{
+            label: 'Quantidade',
+            data,
+            backgroundColor: 'rgba(26,54,93,0.7)',
+            borderColor: 'rgba(26,54,93,1)',
+            borderWidth: 1,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: {
+              display: true,
+              text: titulo,
+              font: { size: 16, weight: 'bold' }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1 }
+            }
+          }
+        }
+      });
+    }
+
+    async function montarDashboard() {
+      const ordens = await buscarOrdens();
+
+      // Total OS
+      document.getElementById('total-os').innerText = ordens.length;
+
+      // OS por status
+      const contagemStatus = contarPorCampo(ordens, 'status');
+      const labelsStatus = Object.keys(contagemStatus);
+      const dataStatus = Object.values(contagemStatus);
+
+      // OS por região
+      const contagemRegiao = contarPorCampo(ordens, 'regiao');
+      const labelsRegiao = Object.keys(contagemRegiao);
+      const dataRegiao = Object.values(contagemRegiao);
+
+      // OS por responsável
+      const contagemResp = contarPorCampo(ordens, 'responsavel');
+      const labelsResp = Object.keys(contagemResp);
+      const dataResp = Object.values(contagemResp);
+
+      // Gráficos
+      gerarGrafico(document.getElementById('chartStatus').getContext('2d'), labelsStatus, dataStatus, 'bar', 'Ordens por Status');
+      gerarGrafico(document.getElementById('chartRegiao').getContext('2d'), labelsRegiao, dataRegiao, 'bar', 'Ordens por Região');
+      gerarGrafico(document.getElementById('chartResponsavel').getContext('2d'), labelsResp, dataResp, 'bar', 'Ordens por Responsável');
+
+      // Últimas OS (mostrar as 10 mais recentes pela data de criação)
+      const ultimas = ordens
+        .sort((a, b) => new Date(b.criacao) - new Date(a.criacao))
+        .slice(0, 10);
+
+      const tbody = document.getElementById('ultimas-os');
+      tbody.innerHTML = '';
+
+      ultimas.forEach(os => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${os.nroOS}</td>
+          <td>${os.tipo}</td>
+          <td>${os.status}</td>
+          <td>${os.regiao}</td>
+          <td>${os.endID || ''}</td>
+          <td>${os.latitude || ''}</td>
+          <td>${os.longitude || ''}</td>
+          <td>${os.responsavel}</td>
+          <td>${os.criacao ? new Date(os.criacao).toLocaleDateString() : ''}</td>
+          <td>${os.observacao || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    montarDashboard();
+
+    // Filtro da busca por qualquer coluna
+    document.getElementById('busca').addEventListener('input', function() {
+      const filtro = this.value.toLowerCase();
+      const tbody = document.getElementById('ultimas-os');
+      const linhas = tbody.getElementsByTagName('tr');
+
+      for (let linha of linhas) {
+        const textoLinha = linha.textContent.toLowerCase();
+        if (textoLinha.includes(filtro)) {
+          linha.style.display = '';
+        } else {
+          linha.style.display = 'none';
+        }
+      }
+    });
+  </script>
+</body>
+</html>
+
+

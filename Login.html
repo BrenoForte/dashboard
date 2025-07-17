@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Conforms</title>
+  <style>
+    :root {
+      --primary-color: #1a365d;
+      --secondary-color: #2c5282;
+      --accent-color: #4299e1;
+      --light-color: #ebf8ff;
+      --error-color: #e53e3e;
+      --success-color: #38a169;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f7fafc;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      color: #2d3748;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 450px;
+      margin-top: 50px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 2.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    h1 {
+      color: var(--primary-color);
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 1.75rem;
+      font-weight: 600;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      font-size: 1rem;
+      transition: border-color 0.3s ease;
+      box-sizing: border-box;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+    }
+
+    input::placeholder {
+      color: #a0aec0;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: var(--secondary-color);
+    }
+
+    #mensagem {
+      padding: 0.75rem;
+      border-radius: 4px;
+      text-align: center;
+      margin-top: 1rem;
+      font-weight: 500;
+    }
+
+    .error {
+      background-color: #fff5f5;
+      color: var(--error-color);
+    }
+
+    .success {
+      background-color: #f0fff4;
+      color: var(--success-color);
+    }
+
+    .loading {
+      color: var(--secondary-color);
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .logo span {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <span>Conforms</span>
+    </div>
+    <div class="card">
+      <h1>Login</h1>
+      <form id="loginForm">
+        <div class="form-group">
+          <input type="text" id="username" placeholder="Usuário" required />
+        </div>
+        <div class="form-group">
+          <input type="password" id="password" placeholder="Senha" required />
+        </div>
+        <button type="submit">Entrar</button>
+      </form>
+    </div>
+    <div id="mensagem"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const mensagem = document.getElementById('mensagem');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      if (!username || !password) {
+        mensagem.textContent = 'Usuário e senha são obrigatórios.';
+        mensagem.className = 'error';
+        return;
+      }
+
+      mensagem.textContent = 'Conectando...';
+      mensagem.className = 'loading';
+
+      try {
+        const res = await fetch('http://localhost:3000/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const dados = await res.json();
+
+        if (!res.ok) {
+          mensagem.textContent = dados.erro || 'Erro ao fazer login.';
+          mensagem.className = 'error';
+        } else {
+          mensagem.textContent = '✅ Login realizado com sucesso!';
+          mensagem.className = 'success';
+
+          // Salva o token no localStorage
+          localStorage.setItem('token', dados.token);
+
+          // Redireciona para a página protegida (ex: dashboard.html)
+          setTimeout(() => {
+            window.location.href = 'usuarios.html'; // sua tela protegida
+          }, 1000);
+        }
+      } catch (e) {
+        mensagem.textContent = 'Erro de conexão com o servidor.';
+        mensagem.className = 'error';
+        console.error(e);
+      }
+    });
+  </script>
+</body>
+</html>
